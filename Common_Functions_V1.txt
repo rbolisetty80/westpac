@@ -1,0 +1,281 @@
+'###############################  KEYWORD DRIVEN FRAMEWORK   #####################################
+'File Name	 		: Common Functions 
+'Author		       	: Open2Test
+'Version	    	: V 1.00
+'Date of Creation	: 17 February 2009
+'######################################  Common Functions  #######################################
+Option Explicit 	'To enforce variable declaration
+'#################################################################################################
+'Function name 		: Func_CommonFunctions
+'Description        : If the user requires to perform a set of operations using the File System Objects.
+'Parameters       	: 1. The type of object being used for FSO like File, Folder
+'				  	  2. The details to be used while using FSO.                                
+'Assumptions     	: NA
+'#################################################################################################
+'The following function is for 'Function' Keyword
+'#################################################################################################
+Function Func_CommonFunctions(strType,strDetails,intRowCount)
+   Dim strFuncType		'Stores the type of object(Ex:File,Folder) to be used
+   Dim strFuncDetails	'Stores the details of the object(Ex:Folder name,Folder Path)
+   strFuncType = Trim(strType)
+   strFuncDetails = Trim(strDetails)
+	Select Case LCase(Trim(strFuncType))
+		Case "folder"
+			Call Func_Folder(strFuncDetails)
+		Case "file"
+			Call Func_File(strFuncDetails)
+		Case "exportxml"
+			Call Func_ExportXML(strFuncDetails,Datatable.Value(5,dtGlobalSheet))
+		Case "deletexml"
+			Call Func_DeleteXML(strFuncDetails)
+		Case Else
+			Reporter.ReportEvent micFail,"Invalid common function" ,"Please check the function name " & (strFuncType)
+	End Select
+End Function
+'#################################################################################################
+'#################################################################################################
+'Function name 		: Func_Folder
+'Description        : If the user is working with Folders by using FSO 
+'Parameters       	: 1.The details to be used while using FSO.                                
+'Assumptions     	: NA
+'#################################################################################################
+'The following function is for 'Function' Keyword
+'#################################################################################################
+Function Func_Folder(pCellData)
+	Dim arrFolderpath 	'Stores the elements of the folder path separated by delimiter "\"
+	Dim intFolderloc	'Stores the element number of the Folder Name
+	Dim DestFolder		'Stores the Destination Folder 
+	Dim Foldername		'Stores the Folder Name
+	Dim oFSO			'Stores the Created object
+	Dim arrCellData		'Stores the details of the operation to be performed
+	Dim oFolder			'Stores the details of Object created
+	arrCellData =split(pCellData,";",-1,1)
+	arrFolderpath=(split(arrCellData(1),"\",-1,1))
+	intFolderloc=UBound(arrFolderpath)
+	Foldername=arrFolderpath(intFolderloc)'Storing the Folder Name
+    Set oFSO = CreateObject("Scripting.FileSystemObject")'Creating a FSO object
+	Select Case LCase(arrCellData(0))'Selecting the specific action to be performed
+		Case "create"
+			If Not oFSO.FolderExists(arrCellData(1)) Then 'Checking if folder already exists
+				Set oFolder = oFSO.CreateFolder(arrCellData(1))'Creating the Folder
+				Reporter.ReportEvent micDone,"Folder should be created" ,"Folder Created at Path: " & (arrCellData(1))
+			Else		
+				Set oFolder = oFSO.GetFolder(arrCellData(1))
+				Reporter.ReportEvent micDone, "Folder should be created","Folder Already Exists at Path: " & (arrCellData(1))
+			End If
+		Case "delete"	
+			If Not oFSO.FolderExists(arrCellData(1)) Then 'Checking if folder already exists
+				Reporter.ReportEvent micFail, "Keyword Check at Line no - " & intRowCount,"Folder does not Exist at Path: " & (arrCellData(1))
+			Else
+				oFSO.DeleteFolder(arrCellData(1))'Deleting te Folder
+				Reporter.ReportEvent micDone, "Folder should be deleted","Folder is deleted at Path:" & (arrCellData(1)) 
+			End If
+		Case "copy"
+			If Not oFSO.FolderExists(arrCellData(1)) Then 'Checking if folder already exists
+				Reporter.ReportEvent micFail, "Keyword Check at Line no - " & intRowCount  &vbcrlf & "  Folder Does Not Exist. ", "Folder : " & (arrCellData(1)) & " does not exist"
+			Else		
+				If oFSO.FolderExists(arrCellData(2)) Then 'Checking if folder already exists
+					If Right(arrCellData(2),1) <>"\" Then
+						arrCellData(2)=arrCellData(2) & "\"
+					End If
+					oFSO.CopyFolder arrCellData(1), arrCellData(2), True
+					Reporter.ReportEvent micDone, "Folder " & arrCellData(1) &" should be copied", " Folder is copied to  Path :" & arrCellData(2)
+				Else
+					oFSO.CreateFolder(arrCellData(2)) 
+				   If Right(arrCellData(2),1) <>"\" Then
+						arrCellData(2)=arrCellData(2) & "\"
+					End If
+					oFSO.CopyFolder arrCellData(1), arrCellData(2), True 'Copying folder from one destination to another  		
+					Reporter.ReportEvent micDone, "Destination Folder should be present", " Destination Folder Was Created at Path :" & arrCellData(2)& ", as it did not exist and " & (arrCellData(1)) & "and was Copied"
+				End If
+			End If
+		Case "move"
+			If Not oFSO.FolderExists(arrCellData(1)) Then 'Checking if folder already exists
+				Reporter.ReportEvent micFail,"Keyword Check at Line no - " & intRowCount &vbcrlf & "  Folder Does Not Exist. ", "Folder " & (arrCellData(1)) & " does not exist"
+			Else		
+				If oFSO.FolderExists(arrCellData(2)) Then 'Checking if folder already exists
+                    DestFolder=(arrCellData(2))& "\" & Foldername
+					If oFSO.FolderExists(DestFolder) Then 'Checking if folder already exists
+						oFSO.deletefolder(DestFolder) 'Deleting the folder if it already exists
+					End If
+					oFSO.MoveFolder arrCellData(1), DestFolder 'Moving the desired folder
+					Reporter.ReportEvent micDone, "Folder " & arrCellData(1) & " Moved", "Folder moved to destination " & (arrCellData(2))
+				Else
+					oFSO.CreateFolder(arrCellData(2))
+					oFSO.MoveFolder arrCellData(1), arrCellData(2) 'Moving the desired folder 		
+					Reporter.ReportEvent micDone, " Destination Folder Was Created As It did not exist",("Folder " & (arrCellData(1)) &" moved")
+				End If
+			End If
+	End Select
+End Function
+'#################################################################################################
+'#################################################################################################
+'Function name 		: Func_File
+'Description        : If the user is working with Files by using FSO 
+'Parameters       	: 1.The details to be used while using FSO.                                
+'Assumptions     	: NA
+'#################################################################################################
+'The following function is for 'Function' Keyword
+'#################################################################################################
+Function  Func_File(pCellData)
+	Dim arrFilepath	'Stores the File path
+	Dim DestFile	'Stores the Destination File Name
+	Dim strFilename	'Stores the File name to be used
+	Dim intFileLoc	'Stores the element number of the File Name
+	Dim iFSO		'Stores the Created object
+	Dim oFile		'Stores the details of Object created
+	Dim arrCellData1'Stores the details of the operation to be performed
+	Dim intf		'Used for looping
+	Dim strMess		'Stores the String which has to be written into a file
+	arrCellData1 =split(pCellData,";",-1,1)
+	arrFilepath=(split(arrCellData1(1),"\",-1,1))
+	intFileloc=UBound(arrFilepath)
+	strFilename=arrFilepath(intFileloc)
+	Set iFSO = CreateObject("Scripting.FileSystemObject")
+	Select Case LCase(arrCellData1(0))
+		Case "create"
+			If Not iFSO.FileExists(arrCellData1(1)) Then
+				Set oFile = iFSO.CreateTextFile(arrCellData1(1),True)'Creating File
+				Reporter.ReportEvent micDone, "File Created", "File: " & (arrCellData1(1)) & " Created"
+			Else
+				Set oFile = iFSO.GetFile(arrCellData1(1))'Retrieving the File
+				Reporter.ReportEvent micDone, "File Already Exists", "File: " & (arrCellData1(1)) & " Exists"
+			End If
+		Case "delete"	
+			If Not iFSO.FileExists(arrCellData1(1)) Then
+				Reporter.ReportEvent micFail, "Keyword Check at Line no - " & intRowCount, "File does not Exist at Path: " & (arrCellData1(1))
+			Else
+				iFSO.DeleteFile(arrCellData1(1))'Deleting File
+				Reporter.ReportEvent micDone, "File Deleted", "File: " & (arrCellData1(1)) & " Deleted"
+			End If
+		Case "copy"
+			If Not iFSO.FileExists(arrCellData1(1)) Then
+				Reporter.ReportEvent micFail,  "Keyword Check at Line no - " & intRowCount & vbcrlf & "File Does Not Exist" , "File  " & (arrCellData1(1)) & " does not exist"
+			Else		
+				If iFSO.FolderExists(arrCellData1(2)) Then
+					If Right(arrCellData1(2),1) <>"\" Then
+						arrCellData1(2)=arrCellData1(2) & "\"
+					End If
+					iFSO.CopyFile arrCellData1(1), arrCellData1(2) ,true    'Copying File
+					Reporter.ReportEvent micDone, "File "&arrCellData1(1) & " Copied", "File copied to " & (arrCellData1(2)) & " location"  	
+				Else
+					iFSO.CreateFolder(arrCellData1(2))
+					iFSO.CopyFile arrCellData1(1), arrCellData1(2), true
+					Reporter.ReportEvent micDone, " Destination Folder " &arrCellData1(2)& "  Created As It did not exist",("File " & (arrCellData1(1)) & " Copied")
+				End If
+			End If
+		Case "move"
+			If Not iFSO.FileExists(arrCellData1(1)) Then
+				Reporter.ReportEvent micFail,"Keyword Check at Line no - " & intRowCount  & vbcrlf & "File Does Not Exist", " File " & (arrCellData1(1)) & " does not exist"
+			Else		
+				If iFSO.FolderExists(arrCellData1(2)) Then
+					If Right(arrCellData1(2),1) <>"\" Then
+						arrCellData1(2)=arrCellData1(2) & "\"
+					End If
+                    DestFile=(arrCellData1(2)) & strFilename
+					If iFSO.FileExists(DestFile) Then
+						iFSO.deletefile(DestFile)'Deleting the file if it already exists
+					End If
+					iFSO.MoveFile arrCellData1(1), arrCellData1(2)'Moving file from one place to another
+					Reporter.ReportEvent micDone, "File " & arrCellData1(1)& " Moved", "File moved to destination" & (arrCellData1(2))			
+				Else
+				   iFSO.CreateFolder(arrCellData1(2))
+				    arrCellData1(2)=arrCellData1(2) & "\"
+					iFSO.MoveFile arrCellData1(1), arrCellData1(2)
+					Reporter.ReportEvent micDone, " Destination Folder '" & arrCellData1(2) & "'  was created As It did not exist",("File " & (arrCellData1(1)) & " Copied")
+			  End If
+			End If
+		Case "write"
+			Dim arrWrite
+			If iFSO.FileExists(arrCellData1(1)) Then
+				Set oFile = iFSO.OpenTextFile(arrCellData1(1),2, True)'Opening File to append Text
+				intf = 0
+				arrWrite = Split(arrCellData1(2),":",-1,1)
+				For intf = 0 to  Ubound(arrWrite)
+				   If (Instr(1,arrWrite(intf),"#") = 1) Then
+					  arrWrite(intf) = GetValue(arrWrite(intf))
+				   End If
+				 strMess = strMess & " " & arrWrite(intf)
+				Next 
+				oFile.Write strMess
+				Reporter.ReportEvent micDone, "Text Written in File", "Text: '" & strMess & "'  Written"
+			Else
+				Reporter.ReportEvent micFail,  "File Does Not Exists", "File " & strFilename & " Does Not Exist"
+			End If
+		Case "read"
+			If iFSO.FileExists(arrCellData1(1)) Then
+				Set oFile = iFSO.OpenTextFile(arrCellData1(1),1)
+				Environment.Value(arrCellData1(2))=oFile.ReadAll
+				Reporter.ReportEvent micDone, "Read File Operation Done", ("File " & (arrCellData1(1)) & " read & it contains text " & Environment.Value(arrCellData1(2)))
+			Else
+				Reporter.ReportEvent micFail,  "File Does Not Exists",("Could not read file as " & strFilename & " Does Not Exist")
+			End If
+		Case "append"
+			If iFSO.FileExists(arrCellData1(1)) Then
+				Set oFile = iFSO.OpenTextFile(arrCellData1(1),8, True)
+				arrCellData1(2)=GetValue(arrCellData1(2))
+				oFile.Write arrCellData1(2)
+				Reporter.ReportEvent micDone, "Text Appended to File", "Text: '" & (arrCellData1(2)) & "' appended"
+			Else
+				Reporter.ReportEvent micFail,  "File Does Not Exists", "File " & strFilename & " Does Not Exist"
+			End If
+	End Select
+End Function
+'#################################################################################################
+'#################################################################################################
+'Function name 		: Func_ExportXML
+'Description        : If the user wants to export data and store it in a XML format
+'Parameters       	: 1.The details to be used while exporting in XML format.                                
+'					  2.The Path where the XML has to be stored
+'Assumptions     	: NA
+'#################################################################################################
+'The following function is for 'Function' Keyword
+'#################################################################################################
+Function Func_ExportXML(strDetails1,sPath)
+    Dim into			'Used for looping
+	Dim oRoot			'Stores the Root Element for the Object
+	Dim arrDocSplit		'Stores the elements to be exported to XML and the document name
+	Dim strDocName		'Stores the Document name
+	Dim arrElementSplit	'Stores the variable and their tag names to be exported to XML
+	Dim arrElementName	'Stores the current variable and its tag names to be exported to XML
+	Dim oDoc	   		'Stores the XML Object
+	arrDocSplit = Split(strDetails1,";",2,1)
+	strDocName = arrDocSplit(0)
+	arrElementSplit = Split(arrDocSplit(1),"::",-1,1)'Splitting the different values to be stored in the XML
+	Set oDoc = Nothing                           ' Before exporting data to file (first time/overwrite) flush the object.
+	Set oDoc = XMLUtil.CreateXML()               ' Object to a XML file. 
+	oDoc.CreateDocument strDocName          	     ' Name of the file.
+	Set oRoot = oDoc.GetRootElement()
+	For into = 0 to Ubound(arrElementSplit)
+		arrElementName = Split(arrElementSplit(into),":",-1,1)
+		arrElementName(0) = GetValue(arrElementName(0))
+		arrElementName(1) = GetValue(arrElementName(1))
+		oRoot.AddChildElementByName arrElementName(0),arrElementName(1)' Adding data
+	Next
+	oDoc.SaveFile sPath      					' Saves the file at a particular path.
+	Set oRoot = Nothing
+	Set oDoc = Nothing 
+End Function
+'#################################################################################################
+'#################################################################################################
+'Function name 		: Func_DeleteXML
+'Description        : If the user wants to delete a XML file.
+'Parameters       	: 1.The path in which the XML File is present.                                
+'Assumptions     	: NA
+'#################################################################################################
+'The following function is for 'Function' Keyword
+'#################################################################################################
+Function Func_Deletexml(sPath)
+	Dim dFileObj	'Stores the XML File to be used
+	Dim dFSO	  	'Stores the XML Object
+	Set dFSO = Nothing									  ' Before exporting data to file (first time/overwrite) flush the object.
+	Set dFSO =  CreateObject("Scripting.FileSystemObject")' Sets an File System Object for the XML file.
+	If dFSO.FileExists(sPath) Then
+		Set dFileObj = dFSO.GetFile (sPath)
+		dFileObj.Delete(True)	   						   ' Verification of the  Deletion of  the xml file.
+	End If
+	Set dFSO = Nothing
+End Function
+'#################################################################################################
+
+
